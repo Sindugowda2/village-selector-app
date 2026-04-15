@@ -1,0 +1,32 @@
+model state {
+  id         Int        @id @default(autoincrement())
+  name       String?
+  code       String?
+  districts  district[]
+}
+
+model district {
+  id        Int           @id @default(autoincrement())
+  name      String?
+  code      String?
+  state_id  Int?
+  state     state?        @relation(fields: [state_id], references: [id])
+  subdistricts subdistrict[]
+}
+
+model subdistrict {
+  id          Int         @id @default(autoincrement())
+  name        String?
+  code        String?
+  district_id Int?
+  district    district?   @relation(fields: [district_id], references: [id])
+  villages    village[]
+}
+
+model village {
+  id             Int          @id @default(autoincrement())
+  name           String?
+  code           String?
+  subdistrict_id Int?
+  subdistrict    subdistrict? @relation(fields: [subdistrict_id], references: [id])
+}
