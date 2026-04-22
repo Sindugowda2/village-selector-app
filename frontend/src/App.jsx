@@ -26,8 +26,8 @@ function App() {
   // 🔹 LOAD STATES (FIXED)
   // ================================
   useEffect(() => {
-    fetch("http://localhost:3000/v1/states", {
-      headers: { "x-api-key": API_KEY }
+    fetch("https://village-backend.onrender.com/v1/states", {
+      headers: { "x-api-key": "123456" }
     })
       .then(res => res.json())
       .then(data => {
@@ -47,8 +47,8 @@ function App() {
     setSubdistrictId("");
     setSelectedVillage(null);
 
-    fetch(`http://localhost:3000/v1/states/${id}/districts`, {
-      headers: { "x-api-key": API_KEY }
+    fetch(`https://village-backend.onrender.com/v1/states/${id}/districts`, {
+      headers: { "x-api-key": "123456" }
     })
       .then(res => res.json())
       .then(data => {
@@ -69,8 +69,8 @@ function App() {
     setSubdistrictId("");
     setSelectedVillage(null);
 
-    fetch(`http://localhost:3000/v1/districts/${id}/subdistricts`, {
-      headers: { "x-api-key": API_KEY }
+    fetch(`https://village-backend.onrender.com/v1/districts/${id}/subdistricts`, {
+      headers: { "x-api-key": "123456" }
     })
       .then(res => res.json())
       .then(data => {
@@ -92,8 +92,8 @@ function App() {
     setSelectedVillage(null);
     setPage(pageNumber);
 
-    fetch(`http://localhost:3000/v1/subdistricts/${id}/villages?page=${pageNumber}&limit=50`, {
-      headers: { "x-api-key": API_KEY }
+    fetch(`https://village-backend.onrender.com/v1/subdistricts/${id}/villages?page=${pageNumber}&limit=50`, {
+      headers: { "x-api-key": "123456" }
     })
       .then(res => res.json())
       .then(data => {
@@ -113,8 +113,8 @@ function App() {
       return;
     }
 
-    fetch(`http://localhost:3000/v1/search?q=${search}`, {
-      headers: { "x-api-key": API_KEY }
+    fetch(`https://village-backend.onrender.com/v1/search?q=${search}`, {
+      headers: { "x-api-key": "123456" }
     })
       .then(res => res.json())
       .then(data => {

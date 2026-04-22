@@ -6,33 +6,18 @@ const jwt = require("jsonwebtoken");
 const app = express();
 const prisma = new PrismaClient();
 
-app.use(cors());
+app.use(cors({
+  origin: "*",
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  allowedHeaders: ["Content-Type", "Authorization", "x-api-key"]
+}));
 app.use(express.json());
 
-const SECRET = "mysecret123";
-// 🔐 JWT AUTH MIDDLEWARE
 // ================================
-const authenticateToken = (req, res, next) => {
-  const token = req.headers["authorization"];
-
-  if (!token) {
-    return res.status(401).json({
-      success: false,
-      message: "Token required"
-    });
-  }
-
-  try {
-    const user = jwt.verify(token, SECRET);
-    req.user = user;
-    next();
-  } catch (err) {
-    return res.status(403).json({
-      success: false,
-      message: "Invalid token"
-    });
-  }
-};
+// 🔐 ENV VARIABLES (IMPORTANT)
+// ================================
+const API_KEY = process.env.API_KEY;
+const SECRET = process.env.JWT_SECRET;
 
 // ================================
 // 🔐 LOGIN API (NO API KEY REQUIRED)
@@ -58,10 +43,7 @@ app.post("/v1/login", (req, res) => {
 // ================================
 // 🔐 API KEY MIDDLEWARE
 // ================================
-const API_KEY = "123456";
-
 app.use((req, res, next) => {
-  // ❗ Allow login without API key
   if (req.path === "/v1/login") {
     return next();
   }
@@ -77,10 +59,9 @@ app.use((req, res, next) => {
 
   next();
 });
-// ================================
 
 // ================================
-// 🔒 JWT VERIFY MIDDLEWARE (for admin)
+// 🔒 JWT VERIFY (ADMIN)
 // ================================
 const verifyToken = (req, res, next) => {
   const token = req.headers["authorization"];
@@ -98,187 +79,89 @@ const verifyToken = (req, res, next) => {
 };
 
 // ================================
-// 📌 GET ALL STATES
+// 📌 STATES
 // ================================
 app.get("/v1/states", async (req, res) => {
-  const start = Date.now();
+  const states = await prisma.state.findMany({
+    orderBy: { name: "asc" }
+  });
 
-  try {
-    const states = await prisma.state.findMany({
-      orderBy: { name: "asc" }
-    });
-
-    res.json({
-      success: true,
-      count: states.length,
-      data: states,
-      meta: {
-        responseTime: Date.now() - start + "ms"
-      }
-    });
-  } catch {
-    res.status(500).json({ success: false });
-  }
+  res.json({ success: true, data: states });
 });
 
 // ================================
-// 📌 GET DISTRICTS BY STATE
+// 📌 DISTRICTS
 // ================================
 app.get("/v1/states/:id/districts", async (req, res) => {
-  const start = Date.now();
+  const districts = await prisma.district.findMany({
+    where: { state_id: Number(req.params.id) },
+    orderBy: { name: "asc" }
+  });
 
-  try {
-    const districts = await prisma.district.findMany({
-      where: { state_id: Number(req.params.id) },
-      orderBy: { name: "asc" }
-    });
-
-    res.json({
-      success: true,
-      count: districts.length,
-      data: districts,
-      meta: { responseTime: Date.now() - start + "ms" }
-    });
-  } catch {
-    res.status(500).json({ success: false });
-  }
+  res.json({ success: true, data: districts });
 });
 
 // ================================
-// 📌 GET SUBDISTRICTS
+// 📌 SUBDISTRICTS
 // ================================
 app.get("/v1/districts/:id/subdistricts", async (req, res) => {
-  const start = Date.now();
+  const subdistricts = await prisma.subdistrict.findMany({
+    where: { district_id: Number(req.params.id) },
+    orderBy: { name: "asc" }
+  });
 
-  try {
-    const subdistricts = await prisma.subdistrict.findMany({
-      where: { district_id: Number(req.params.id) },
-      orderBy: { name: "asc" }
-    });
-
-    res.json({
-      success: true,
-      count: subdistricts.length,
-      data: subdistricts,
-      meta: { responseTime: Date.now() - start + "ms" }
-    });
-  } catch {
-    res.status(500).json({ success: false });
-  }
+  res.json({ success: true, data: subdistricts });
 });
 
 // ================================
-// 📌 GET VILLAGES
+// 📌 VILLAGES
 // ================================
 app.get("/v1/subdistricts/:id/villages", async (req, res) => {
-  const start = Date.now();
+  const villages = await prisma.village.findMany({
+    where: { subdistrict_id: Number(req.params.id) },
+    orderBy: { name: "asc" }
+  });
 
-  try {
-    const villages = await prisma.village.findMany({
-      where: { subdistrict_id: Number(req.params.id) },
-      orderBy: { name: "asc" }
-    });
-
-    res.json({
-      success: true,
-      count: villages.length,
-      data: villages,
-      meta: { responseTime: Date.now() - start + "ms" }
-    });
-  } catch {
-    res.status(500).json({ success: false });
-  }
+  res.json({ success: true, data: villages });
 });
 
 // ================================
 // 🔍 SEARCH
 // ================================
 app.get("/v1/search", async (req, res) => {
-  const start = Date.now();
   const { q, limit = 10 } = req.query;
 
   if (!q || q.length < 2) {
-    return res.status(400).json({
-      success: false,
-      message: "Query must be at least 2 characters"
-    });
+    return res.status(400).json({ message: "Query too short" });
   }
 
-  try {
-    const villages = await prisma.village.findMany({
-      where: {
-        name: { contains: q, mode: "insensitive" }
-      },
-      take: Number(limit),
-      orderBy: { name: "asc" },
-      include: {
-        subdistrict: {
-          include: {
-            district: {
-              include: { state: true }
-            }
+  const villages = await prisma.village.findMany({
+    where: {
+      name: { contains: q, mode: "insensitive" }
+    },
+    take: Number(limit),
+    include: {
+      subdistrict: {
+        include: {
+          district: {
+            include: { state: true }
           }
         }
       }
-    });
+    }
+  });
 
-    const formatted = villages.map(v => ({
-      value: v.id,
-      label: v.name,
-      fullAddress: `${v.name}, ${v.subdistrict?.name}, ${v.subdistrict?.district?.name}, ${v.subdistrict?.district?.state?.name}, India`
-    }));
+  const formatted = villages.map(v => ({
+    value: v.id,
+    label: v.name,
+    fullAddress: `${v.name}, ${v.subdistrict?.name}, ${v.subdistrict?.district?.name}, ${v.subdistrict?.district?.state?.name}, India`
+  }));
 
-    res.json({
-      success: true,
-      count: formatted.length,
-      data: formatted,
-      meta: { responseTime: Date.now() - start + "ms" }
-    });
-
-  } catch {
-    res.status(500).json({ success: false });
-  }
+  res.json({ success: true, data: formatted });
 });
 
 // ================================
-// ⚡ AUTOCOMPLETE
-// ================================
-app.get("/v1/autocomplete", async (req, res) => {
-  const start = Date.now();
-  const { q } = req.query;
-
-  if (!q || q.length < 2) {
-    return res.status(400).json({
-      success: false,
-      message: "Query must be at least 2 characters"
-    });
-  }
-
-  try {
-    const villages = await prisma.village.findMany({
-      where: {
-        name: { contains: q, mode: "insensitive" }
-      },
-      take: 10,
-      orderBy: { name: "asc" }
-    });
-
-    res.json({
-      success: true,
-      data: villages.map(v => ({
-        value: v.id,
-        label: v.name
-      })),
-      meta: { responseTime: Date.now() - start + "ms" }
-    });
-
-  } catch {
-    res.status(500).json({ success: false });
-  }
-});
-
-// ================================
-// 🔒 PROTECTED ADMIN ROUTE
+// 🔒 ADMIN ROUTE
 // ================================
 app.get("/v1/admin", verifyToken, (req, res) => {
   res.json({
@@ -288,7 +171,7 @@ app.get("/v1/admin", verifyToken, (req, res) => {
 });
 
 // ================================
-// 🚀 SERVER START
+// 🚀 START SERVER
 // ================================
 const PORT = process.env.PORT || 3000;
 
