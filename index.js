@@ -112,7 +112,7 @@ app.get("/v1/states", async (req, res) => {
       message: "Failed to fetch states"
     });
   }
-});ss
+});
 // ================================
 // 📌 DISTRICTS (WITH TRY-CATCH)
 // ================================
