@@ -2,16 +2,28 @@ const express = require("express");
 const cors = require("cors");
 const { PrismaClient } = require("@prisma/client");
 const jwt = require("jsonwebtoken");
+const rateLimit = require("express-rate-limit");
 
 const app = express();
 const prisma = new PrismaClient();
 
 app.use(cors({
   origin: "*",
-  methods: ["GET", "POST", "PUT", "DELETE"],
+  methods: ["GET", "POST"],
   allowedHeaders: ["Content-Type", "Authorization", "x-api-key"]
 }));
 app.use(express.json());
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 mins
+  max: 100, // max 100 requests
+  message: {
+    success: false,
+    message: "Too many requests, please try again later"
+  }
+});
+
+app.use(limiter);
 
 // ================================
 // 🔐 ENV VARIABLES (IMPORTANT)
@@ -82,84 +94,173 @@ const verifyToken = (req, res, next) => {
 // 📌 STATES
 // ================================
 app.get("/v1/states", async (req, res) => {
-  const states = await prisma.state.findMany({
-    orderBy: { name: "asc" }
-  });
+  try {
+    const states = await prisma.state.findMany({
+      orderBy: { name: "asc" }
+    });
 
-  res.json({ success: true, data: states });
-});
+    res.json({
+      success: true,
+      data: states
+    });
 
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch states"
+    });
+  }
+});ss
 // ================================
-// 📌 DISTRICTS
+// 📌 DISTRICTS (WITH TRY-CATCH)
 // ================================
 app.get("/v1/states/:id/districts", async (req, res) => {
-  const districts = await prisma.district.findMany({
-    where: { state_id: Number(req.params.id) },
-    orderBy: { name: "asc" }
-  });
+  try {
+    const districts = await prisma.district.findMany({
+      where: {
+        state_id: Number(req.params.id)
+      },
+      orderBy: {
+        name: "asc"
+      }
+    });
 
-  res.json({ success: true, data: districts });
+    res.json({
+      success: true,
+      data: districts
+    });
+
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch districts"
+    });
+  }
 });
 
+
 // ================================
-// 📌 SUBDISTRICTS
+// 📌 SUBDISTRICTS (WITH TRY-CATCH)
 // ================================
 app.get("/v1/districts/:id/subdistricts", async (req, res) => {
-  const subdistricts = await prisma.subdistrict.findMany({
-    where: { district_id: Number(req.params.id) },
-    orderBy: { name: "asc" }
-  });
+  try {
+    const subdistricts = await prisma.subdistrict.findMany({
+      where: {
+        district_id: Number(req.params.id)
+      },
+      orderBy: {
+        name: "asc"
+      }
+    });
 
-  res.json({ success: true, data: subdistricts });
+    res.json({
+      success: true,
+      data: subdistricts
+    });
+
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch subdistricts"
+    });
+  }
 });
 
+
 // ================================
-// 📌 VILLAGES
+// 📌 VILLAGES (WITH TRY-CATCH)
 // ================================
 app.get("/v1/subdistricts/:id/villages", async (req, res) => {
-  const villages = await prisma.village.findMany({
-    where: { subdistrict_id: Number(req.params.id) },
-    orderBy: { name: "asc" }
-  });
+  try {
+    const villages = await prisma.village.findMany({
+      where: {
+        subdistrict_id: Number(req.params.id)
+      },
+      orderBy: {
+        name: "asc"
+      }
+    });
 
-  res.json({ success: true, data: villages });
+    res.json({
+      success: true,
+      data: villages
+    });
+
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch villages"
+    });
+  }
 });
 
+
 // ================================
-// 🔍 SEARCH
+// 🔍 SEARCH (WITH TRY-CATCH)
 // ================================
 app.get("/v1/search", async (req, res) => {
-  const { q, limit = 10 } = req.query;
+  try {
+    const { q, limit = 10 } = req.query;
 
-  if (!q || q.length < 2) {
-    return res.status(400).json({ message: "Query too short" });
-  }
+    if (!q || q.length < 2) {
+      return res.status(400).json({
+        success: false,
+        message: "Query must be at least 2 characters"
+      });
+    }
 
-  const villages = await prisma.village.findMany({
-    where: {
-      name: { contains: q, mode: "insensitive" }
-    },
-    take: Number(limit),
-    include: {
-      subdistrict: {
-        include: {
-          district: {
-            include: { state: true }
+    const villages = await prisma.village.findMany({
+      where: {
+        name: {
+          contains: q,
+          mode: "insensitive"
+        }
+      },
+      take: Number(limit),
+      orderBy: {
+        name: "asc"
+      },
+      include: {
+        subdistrict: {
+          include: {
+            district: {
+              include: {
+                state: true
+              }
+            }
           }
         }
       }
-    }
-  });
+    });
 
-  const formatted = villages.map(v => ({
-    value: v.id,
-    label: v.name,
-    fullAddress: `${v.name}, ${v.subdistrict?.name}, ${v.subdistrict?.district?.name}, ${v.subdistrict?.district?.state?.name}, India`
-  }));
+    const formatted = villages.map(v => ({
+      value: v.id,
+      label: v.name,
+      fullAddress: `${v.name}, ${v.subdistrict?.name}, ${v.subdistrict?.district?.name}, ${v.subdistrict?.district?.state?.name}, India`
+    }));
 
-  res.json({ success: true, data: formatted });
+    res.json({
+      success: true,
+      data: formatted
+    });
+
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to search villages"
+    });
+  }
 });
-
 // ================================
 // 🔒 ADMIN ROUTE
 // ================================
@@ -168,6 +269,12 @@ app.get("/v1/admin", verifyToken, (req, res) => {
     success: true,
     message: "Welcome Admin 🔐"
   });
+});
+// ================================
+// ❤️ HEALTH CHECK ROUTE
+// ================================
+app.get("/", (req, res) => {
+  res.send("Village API Backend Running Successfully 🚀");
 });
 
 // ================================
